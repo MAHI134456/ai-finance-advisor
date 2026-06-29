@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from backend.app.db.dependencies import get_db
 from backend.app.models.user import User
-from backend.app.schemas.user import UserCreate, UserLogin
+from backend.app.schemas.user import UserCreate
 from backend.app.auth.utils import (
     hash_password,
     verify_password,
@@ -46,13 +46,32 @@ def register(
     }
 
 @router.post("/login")
-def login(
-    user: UserLogin,
+async def login(
+    request: Request,
     db: Session = Depends(get_db)
 ):
-    db_user = db.query(User).filter(
-        User.email == user.email
-    ).first()
+    body = None
+    content_type = request.headers.get("content-type", "")
+
+    if "application/json" in content_type:
+        body = await request.json()
+    else:
+        form = await request.form()
+        body = {
+            "email": form.get("username") or form.get("email"),
+            "password": form.get("password")
+        }
+
+    if not body or not body.get("email") or not body.get("password"):
+        raise HTTPException(
+            status_code=422,
+            detail="Email and password are required"
+        )
+
+    email = body.get("email")
+    password = body.get("password")
+
+    db_user = db.query(User).filter(User.email == email).first()
 
     if not db_user:
         raise HTTPException(
@@ -60,10 +79,7 @@ def login(
             detail="Invalid credentials"
         )
 
-    valid_password = verify_password(
-        user.password,
-        db_user.hashed_password
-    )
+    valid_password = verify_password(password, db_user.hashed_password)
 
     if not valid_password:
         raise HTTPException(
@@ -71,9 +87,7 @@ def login(
             detail="Invalid credentials"
         )
 
-    token = create_access_token(
-        {"sub": db_user.email}
-    )
+    token = create_access_token({"sub": db_user.email})
 
     return {
         "access_token": token,
