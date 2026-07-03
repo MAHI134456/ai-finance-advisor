@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import status
 
 from backend.app.db.dependencies import get_db
 from backend.app.models.user import User
@@ -47,44 +49,17 @@ def register(
 
 @router.post("/login")
 async def login(
-    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    body = None
-    content_type = request.headers.get("content-type", "")
+    # Since you only have email, we use form_data.username as email
+    db_user = db.query(User).filter(User.email == form_data.username).first()
 
-    if "application/json" in content_type:
-        body = await request.json()
-    else:
-        form = await request.form()
-        body = {
-            "email": form.get("username") or form.get("email"),
-            "password": form.get("password")
-        }
-
-    if not body or not body.get("email") or not body.get("password"):
+    if not db_user or not verify_password(form_data.password, db_user.hashed_password):
         raise HTTPException(
-            status_code=422,
-            detail="Email and password are required"
-        )
-
-    email = body.get("email")
-    password = body.get("password")
-
-    db_user = db.query(User).filter(User.email == email).first()
-
-    if not db_user:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid credentials"
-        )
-
-    valid_password = verify_password(password, db_user.hashed_password)
-
-    if not valid_password:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid credentials"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     token = create_access_token({"sub": db_user.email})
