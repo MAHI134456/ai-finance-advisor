@@ -29,11 +29,11 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
     df.columns = [str(col).strip().lower() for col in df.columns]
 
     column_map = {
-        "merchant": ["merchant", "description", "payee", "narrative"],
-        "amount": ["amount", "amt", "value"],
-        "date": ["date", "transaction date", "posted date"],
-        "category": ["category", "cat"],
-        "transaction_type": ["transaction_type", "type"]
+        "merchant": ["merchant", "description", "payee", "narrative", "details", "beneficiary","reference","transaction details"],
+        "amount": ["amount", "amt", "value","transaction amount",],
+        "date": ["date", "transaction date", "posted date", "booking date", "entry date"],
+        "category": ["category", "cat","transaction category"],
+        "transaction_type": ["transaction_type", "type", "transaction type", "debit/credit", "debit_credit"]
     }
 
     mapped = {}
